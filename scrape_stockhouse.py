@@ -1,10 +1,4 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Sun May  3 21:23:38 2020
-
-@author: klahrichi
-"""
-
+import base64
 from bs4 import BeautifulSoup
 import requests
 from urllib.parse import urljoin
@@ -15,6 +9,7 @@ from firebase_admin import credentials
 from firebase_admin import firestore
 import logging
 import argparse
+import os
 
 
 class StockhouseScraper:
@@ -66,15 +61,20 @@ class StockhouseScraper:
 
     def get_post_body(self, url):
         post_page = self.session.get(url)
-        soup = BeautifulSoup(post_page.text)
+        soup = BeautifulSoup(post_page.text, 'html.parser')
         post_body = soup.select_one('div.post-body div.post-content').get_text(strip=True)
         return post_body
 
     def run(self):
         posts = self.get_recent_posts()
-        most_recent_post_saved = list(self.firestore.get_recent_posts(self.source,
-                                                                      self.stock,
-                                                                      limit=1))
+
+        assert(len(posts) > 0)
+        
+        most_recent_post_saved = self.firestore.get_recent_posts(self.source,
+                                                                 self.stock,
+                                                                 limit=1)
+
+        most_recent_post_saved = list(most_recent_post_saved)
         
         # ATTENTION: posts are assumed to be sorted in descending order of timestamp
         i = 0
@@ -82,7 +82,7 @@ class StockhouseScraper:
             # WARNING: this algo might be fragile
             if ((most_recent_post_saved is not None) and
                 (len(most_recent_post_saved) > 0) and
-                (p['timestamp'] < most_recent_post_saved[0]['timestamp'])):
+                (p['timestamp'] < most_recent_post_saved[0].to_dict()['timestamp'])):
                 break
             post = dict(**p, body=self.get_post_body(p['url']))
             self.firestore.insert(post)
@@ -121,32 +121,29 @@ class Firestore:
 
 
 def firebase_init():
-    cred = credentials.Certificate('/home/ubuntu/stook.json')
+    #cred = credentials.Certificate('/home/ubuntu/stook.json')
+    cred = credentials.Certificate('C:\\Users\\klahrichi\\.ssh\\stook.json')
     firebase_admin.initialize_app(cred)
+    #firebase_admin.initialize_app()
 
 
-if __name__ == '__main__':
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--log', default='INFO')
-    args = parser.parse_args()
-    loglevel = args.log
-
-    numeric_level = getattr(logging, loglevel.upper(), None)
-    if not isinstance(numeric_level, int):
-        raise ValueError('Invalid log level: %s' % loglevel)
+def run(event=None, context=None):
     logging.basicConfig(format='%(levelname)s %(asctime)s: %(message)s', 
                         datefmt='%m/%d/%Y %I:%M:%S %p',
-                        level=numeric_level)
+                        level=logging.INFO)
 
     firebase_init()
 
     fs = Firestore()
 
     scraper = StockhouseScraper(exchange='tsx',
-                                stock='pwm',
-                                symbol='v.pwm',
+                                stock='cre',
+                                symbol='v.cre',
                                 firestore=fs,
                                 publisher=None)
 
     scraper.run()
+
+
+if __name__ == '__main__':
+    run()

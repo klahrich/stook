@@ -13,13 +13,16 @@ import dateparser
 import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import firestore
+import logging
+import argparse
 
 
 class StockhouseScraper:
 
     def __init__(self, exchange, stock, symbol, firestore, publisher):
+        self.source = 'stockhouse'
         self.exchange = exchange
-        self.stock = stock
+        self.stock =    stock
         self.symbol = symbol
         self.firestore = firestore
         self.publisher = publisher
@@ -51,12 +54,13 @@ class StockhouseScraper:
         time_stripped = [re.search(r'posted\b(.*\b(am|pm))\b', t, re.IGNORECASE).group(1).strip()
                          for t in time]
 
+        dates = [dateparser.parse(t).strftime('%Y-%m-%d') for t in time_stripped]
         timestamps = [dateparser.parse(t).strftime('%Y-%m-%d %H-%M') for t in time_stripped]
 
-        page_results = [{'title': t, 'author': a, 'timestamp': ts,
+        page_results = [{'title': t, 'author': a, 'timestamp': ts, 'date': d,
                          'url': urljoin(self.baseurl, h),
                          'exchange': self.exchange, 'stock': self.stock, 'source': 'stockhouse'}
-                        for t,a,ts,h in zip(titles, authors, timestamps, hrefs)]
+                        for t,a,ts,d,h in zip(titles, authors, timestamps, dates, hrefs)]
 
         return page_results
 
@@ -66,12 +70,14 @@ class StockhouseScraper:
         post_body = soup.select_one('div.post-body div.post-content').get_text(strip=True)
         return post_body
 
-    def process_front_page(self):
+    def run(self):
         posts = self.get_recent_posts()
-        most_recent_post_saved = list(self.firestore.get_recent('stockhouse',
-                                                                self.stock,
-                                                                limit=1))
-
+        most_recent_post_saved = list(self.firestore.get_recent_posts(self.source,
+                                                                      self.stock,
+                                                                      limit=1))
+        
+        # ATTENTION: posts are assumed to be sorted in descending order of timestamp
+        i = 0
         for p in posts:
             # WARNING: this algo might be fragile
             if ((most_recent_post_saved is not None) and
@@ -80,7 +86,13 @@ class StockhouseScraper:
                 break
             post = dict(**p, body=self.get_post_body(p['url']))
             self.firestore.insert(post)
+            i += 1
             #self.publisher.publish(post)
+
+        if i > 0:
+            logging.info(f'Found {i} new posts.')
+        else:
+            logging.info(f'No new posts found.')
 
 
 class Firestore:
@@ -89,7 +101,7 @@ class Firestore:
         # Use a service account
         self.collection = firestore.client().collection('stocks')
 
-    def get_recent(self, source, stock, limit=None):
+    def get_recent_posts(self, source, stock, limit=None):
         latest = self.collection.where(
             u'source', u'==', source
         ).where(
@@ -109,33 +121,32 @@ class Firestore:
 
 
 def firebase_init():
-    cred = credentials.Certificate('C:\\Users\\klahrichi\\.ssh\\stook.json')
+    cred = credentials.Certificate('/home/ubuntu/stook.json')
     firebase_admin.initialize_app(cred)
 
-#---- TEST 1
-fs = Firestore()
 
-sample_post = {
-    'source': 'test-source',
-    'stock': 'test-stock',
-    'exchange': 'test-exchange',
-    'title': 'test-title',
-    'author': 'test-author',
-    'timestamp': '2020-05-06 08-20',
-    'body': 'test-body',
-    'url': 'test-url'
-}
+if __name__ == '__main__':
 
-fs.insert(sample_post)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--log', default='INFO')
+    args = parser.parse_args()
+    loglevel = args.log
 
-res = list(fs.get_recent(source='test-source', stock='test-stock'))
+    numeric_level = getattr(logging, loglevel.upper(), None)
+    if not isinstance(numeric_level, int):
+        raise ValueError('Invalid log level: %s' % loglevel)
+    logging.basicConfig(format='%(levelname)s %(asctime)s: %(message)s', 
+                        datefmt='%m/%d/%Y %I:%M:%S %p',
+                        level=numeric_level)
 
-#---- TEST 2
+    firebase_init()
 
-scraper = StockhouseScraper(exchange='tsx',
-                            stock='pwm',
-                            symbol='v.pwm',
-                            firestore=fs,
-                            publisher=None)
+    fs = Firestore()
 
-scraper.process_front_page()
+    scraper = StockhouseScraper(exchange='tsx',
+                                stock='pwm',
+                                symbol='v.pwm',
+                                firestore=fs,
+                                publisher=None)
+
+    scraper.run()

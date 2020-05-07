@@ -69,13 +69,13 @@ class StockhouseScraper:
         posts = self.get_recent_posts()
 
         assert(len(posts) > 0)
-        
+
         most_recent_post_saved = self.firestore.get_recent_posts(self.source,
                                                                  self.stock,
                                                                  limit=1)
 
         most_recent_post_saved = list(most_recent_post_saved)
-        
+
         # ATTENTION: posts are assumed to be sorted in descending order of timestamp
         i = 0
         for p in posts:
@@ -121,8 +121,8 @@ class Firestore:
 
 
 def firebase_init():
-    #cred = credentials.Certificate('/home/ubuntu/stook.json')
-    cred = credentials.Certificate('C:\\Users\\klahrichi\\.ssh\\stook.json')
+    cred = credentials.Certificate('/home/ubuntu/stook.json')
+    #cred = credentials.Certificate('C:\\Users\\klahrichi\\.ssh\\stook.json')
     firebase_admin.initialize_app(cred)
     #firebase_admin.initialize_app()
 
@@ -137,8 +137,8 @@ def run(event=None, context=None):
     fs = Firestore()
 
     scraper = StockhouseScraper(exchange='tsx',
-                                stock='cre',
-                                symbol='v.cre',
+                                stock='enb',
+                                symbol='t.enb',
                                 firestore=fs,
                                 publisher=None)
 

@@ -10,6 +10,11 @@ from firebase_admin import firestore
 import logging
 import argparse
 import os
+import time
+from random import uniform
+from google.cloud import pubsub_v1
+
+PROJECT_ID = "stook-706cc"
 
 
 class StockhouseScraper:
@@ -23,6 +28,8 @@ class StockhouseScraper:
         self.publisher = publisher
         self.session = None
         self.baseurl = 'https://stockhouse.com/'
+        self.publisher = publisher
+        self.topic_path = topic_path = publisher.topic_path(PROJECT_ID, 'stocks') 
 
     def get_recent_posts(self):
 
@@ -76,21 +83,35 @@ class StockhouseScraper:
 
         most_recent_post_saved = list(most_recent_post_saved)
 
+        def already_seen(p):
+            cond1 = (p['timestamp'] < most_recent_post_saved[0].to_dict()['timestamp'])
+            cond2 = (p['timestamp'] == most_recent_post_saved[0].to_dict()['timestamp'])
+            cond3 = (p['author'] == most_recent_post_saved[0].to_dict()['author'])
+            cond4 = (p['title'] == most_recent_post_saved[0].to_dict()['title'])
+            return cond1 or (cond2 and cond3 and cond4)
+
         # ATTENTION: posts are assumed to be sorted in descending order of timestamp
         i = 0
-        for p in posts:
+        for p in sorted(posts, reverse=True):
             # WARNING: this algo might be fragile
             if ((most_recent_post_saved is not None) and
                 (len(most_recent_post_saved) > 0) and
-                (p['timestamp'] < most_recent_post_saved[0].to_dict()['timestamp'])):
+                already_seen(p)):
                 break
             post = dict(**p, body=self.get_post_body(p['url']))
             self.firestore.insert(post)
             i += 1
-            #self.publisher.publish(post)
+            self.publisher.publish(self.topic_path.encode('utf-8'),
+                                   data=post['body'].encode('utf-8'),
+                                   timestamp=post['timestamp'].encode('utf-8'),
+                                   exchange=self.exchange.encode('utf-8'),
+                                   stock=self.stock.encode('utf-8'),
+                                   author=post['author'].encode('utf-8'),
+                                   source=self.source.encode('utf-8'))
+            time.sleep(uniform(5, 10))
 
         if i > 0:
-            logging.info(f'Found {i} new posts.')
+            logging.info(f'{self.source} - {self.symbol} - Found {i} new posts.')
         else:
             logging.info(f'No new posts found.')
 
@@ -121,13 +142,13 @@ class Firestore:
 
 
 def firebase_init():
-    cred = credentials.Certificate('/home/ubuntu/stook.json')
-    #cred = credentials.Certificate('C:\\Users\\klahrichi\\.ssh\\stook.json')
+    #cred = credentials.Certificate('/home/ubuntu/stook.json')
+    cred = credentials.Certificate('C:\\Users\\klahrichi\\.ssh\\stook.json')
     firebase_admin.initialize_app(cred)
     #firebase_admin.initialize_app()
 
 
-def run(event=None, context=None):
+def run():
     logging.basicConfig(format='%(levelname)s %(asctime)s: %(message)s', 
                         datefmt='%m/%d/%Y %I:%M:%S %p',
                         level=logging.INFO)
@@ -136,13 +157,20 @@ def run(event=None, context=None):
 
     fs = Firestore()
 
-    scraper = StockhouseScraper(exchange='tsx',
-                                stock='enb',
-                                symbol='t.enb',
-                                firestore=fs,
-                                publisher=None)
+    publisher = pubsub_v1.PublisherClient.from_service_account_file('C:\\Users\\klahrichi\\.ssh\\stook.json')
 
-    scraper.run()
+    for exchange, stock, symbol in [('tsx', 'enb', 't.enb'), ('tsx', 'shop', 't.shop'), 
+                                    ('cve', 'pwm', 'v.pwm'), ('cve', 'cre', 'v.cre'),
+                                    ('tsx', 'well', 't.well'), ('tsx', 'lspd', 't.lspd')]:
+        logging.info(f'Scraping {symbol} from stockhouse')
+        scraper = StockhouseScraper(exchange=exchange,
+                                    stock=stock,
+                                    symbol=symbol,
+                                    firestore=fs,
+                                    publisher=publisher)
+
+        scraper.run()
+        time.sleep(uniform(10, 20))
 
 
 if __name__ == '__main__':

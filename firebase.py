@@ -1,7 +1,7 @@
 import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import firestore
-
+import os
 
 class Firestore:
 
@@ -29,7 +29,5 @@ class Firestore:
 
 
 def firebase_init():
-    #cred = credentials.Certificate('/home/ubuntu/stook.json')
-    cred = credentials.Certificate('C:\\Users\\klahrichi\\.ssh\\stook.json')
+    cred = credentials.Certificate(os.environ['STOOK_SERVICE_ACCOUNT_FILE'])
     firebase_admin.initialize_app(cred)
-    #firebase_admin.initialize_app()

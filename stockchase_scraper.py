@@ -15,8 +15,8 @@ from random import uniform
 
 class StockchaseScraper(BaseScraper):
 
-    def __init__(self, exchange, stock, stockid, symbol, firestore, publisher):
-        super().__init__('stockchase', exchange, stock, firestore, publisher, proxies, slow=True)
+    def __init__(self, exchange, stock, stockid, symbol, firestore, publisher, proxy):
+        super().__init__('stockchase', exchange, stock, firestore, publisher, proxy, slow=True)
         self.stockid = stockid
         self.symbol = symbol
         self.baseurl = 'https://stockchase.com/'

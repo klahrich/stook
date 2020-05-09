@@ -16,8 +16,8 @@ from random import uniform
 
 class StockhouseScraper(BaseScraper):
 
-    def __init__(self, exchange, stock, symbol, firestore, publisher, proxies):
-        super().__init__('stockhouse', exchange, stock, firestore, publisher, proxies, slow=True)
+    def __init__(self, exchange, stock, symbol, firestore, publisher, proxy):
+        super().__init__('stockhouse', exchange, stock, firestore, publisher, proxy, slow=True)
         self.symbol = symbol
         self.baseurl = 'https://stockhouse.com/'
 

@@ -44,14 +44,11 @@ def run(firestore, publisher):
     twitter_env_f = args.twitter_env
     twitter_ids_f = args.twitter_ids
 
-    with open(twitter_env_f, 'r') as f:
-        env = yaml.load(f, Loader=yaml.FullLoader)
-
     with open(twitter_ids_f, 'r') as f:
         twitter_ids = yaml.load(f, Loader=yaml.FullLoader)
 
-    auth = tweepy.OAuthHandler(env['TWITTER_CONSUMER_KEY'], env['TWITTER_CONSUMER_SECRET'])
-    auth.set_access_token(env['TWITTER_TOKEN_KEY'], env['TWITTER_TOKEN_SECRET'])
+    auth = tweepy.OAuthHandler(os.environ['TWITTER_CONSUMER_KEY'], os.environ['TWITTER_CONSUMER_SECRET'])
+    auth.set_access_token(os.environ['TWITTER_TOKEN_KEY'], os.environ['TWITTER_TOKEN_SECRET'])
 
     api = tweepy.API(auth)
 

@@ -16,8 +16,8 @@ from random import uniform
 
 class StockhouseScraper(BaseScraper):
 
-    def __init__(self, exchange, stock, symbol, firestore, publisher):
-        super().__init__('stockhouse', exchange, stock, firestore, publisher, slow=True)
+    def __init__(self, exchange, stock, symbol, firestore, publisher, proxies):
+        super().__init__('stockhouse', exchange, stock, firestore, publisher, proxies, slow=True)
         self.symbol = symbol
         self.baseurl = 'https://stockhouse.com/'
 
@@ -63,7 +63,7 @@ class StockhouseScraper(BaseScraper):
         return post_body
 
 
-def run(firestore, publisher):
+def run(firestore, publisher, proxy):
 
     for exchange, stock, symbol in [('tsx', 'enb', 't.enb'), ('tsx', 'shop', 't.shop'), 
                                     ('cve', 'pwm', 'v.pwm'), ('cve', 'cre', 'v.cre'),
@@ -74,7 +74,8 @@ def run(firestore, publisher):
                                     stock=stock,
                                     symbol=symbol,
                                     firestore=firestore,
-                                    publisher=publisher)
+                                    publisher=publisher,
+                                    proxy=proxy)
 
         scraper.run()
         time.sleep(uniform(5, 10))

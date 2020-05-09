@@ -11,7 +11,7 @@ PROJECT_ID = "stook-706cc"
 
 class BaseScraper:
 
-    def __init__(self, source, exchange, stock, firestore, publisher, slow=False, proxies=None):
+    def __init__(self, source, exchange, stock, firestore, publisher, proxy=None, slow=False):
         self.source = source
         self.exchange = exchange
         self.stock =    stock
@@ -20,10 +20,10 @@ class BaseScraper:
         self.publisher = publisher
         self.topic_path = topic_path = publisher.topic_path(PROJECT_ID, 'stocks') 
         self.slow = slow
-        self.proxies = proxies
+        self.proxy = {'https': proxy}
 
     def get_html(self, url):
-        return requests.get(url, proxies=self.proxies)
+        return requests.get(url, proxies=self.proxy)
 
     def run(self):
         posts = self.get_recent_posts()

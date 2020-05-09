@@ -7,7 +7,6 @@ import dateparser
 import logging
 import argparse
 import os
-from google.cloud import pubsub_v1
 from base_scraper import BaseScraper
 from firebase import Firestore, firebase_init
 import time
@@ -17,7 +16,7 @@ from random import uniform
 class StockchaseScraper(BaseScraper):
 
     def __init__(self, exchange, stock, stockid, symbol, firestore, publisher):
-        super().__init__('stockchase', exchange, stock, firestore, publisher, slow=True)
+        super().__init__('stockchase', exchange, stock, firestore, publisher, proxies, slow=True)
         self.stockid = stockid
         self.symbol = symbol
         self.baseurl = 'https://stockchase.com/'
@@ -56,7 +55,7 @@ class StockchaseScraper(BaseScraper):
         return post['text']
 
 
-def run(firestore, publisher):
+def run(firestore, publisher, proxy):
 
     for exchange, stock, symbol, stockid in [('tsx', 'enb', 'enb-t', '430'), 
                                             ('tsx', 'shop', 'shop-t', '5093'), 
@@ -68,7 +67,8 @@ def run(firestore, publisher):
                                     symbol=symbol,
                                     stockid=stockid,
                                     firestore=firestore,
-                                    publisher=publisher)
+                                    publisher=publisher,
+                                    proxy=proxy)
 
         scraper.run()
         time.sleep(uniform(5, 10))
